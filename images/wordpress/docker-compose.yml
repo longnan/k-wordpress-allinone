@@ -1,0 +1,32 @@
+networks:
+    default:
+        external: true
+        name: k-core
+
+volumes:
+    wordpress_data:
+        external: true
+        name : k_wordpress_data
+
+services:
+    wordpress:
+        image: wordpress:${IMAGE_WORDPRESS_TAG}
+        container_name: k-wordpress
+        restart: unless-stopped
+        # To initialize Wordpress in a subdirectory like /wp, you can use the working_dir attribute.
+        working_dir: /var/www/html/
+        volumes:
+          - ./php.conf.ini:/usr/local/etc/php/conf.d/conf.ini
+          # Ensure WP themes/plugins/uploads persist between restarts.
+          - wordpress_data:/var/www/html/wp-content
+        environment: 
+          WORDPRESS_DB_HOST: k-mysql:3306
+          WORDPRESS_DB_NAME: wordpress
+          WORDPRESS_DB_USER: wordpress
+          WORDPRESS_DB_PASSWORD: wordpress
+        labels:
+            - "traefik.enable=true"
+            - "traefik.http.services.wordpress.loadbalancer.server.port=80"
+            - "traefik.http.routers.wordpress.rule=Host(`www.${DOMAIN_NAME}`)"
+            - "traefik.http.routers.wordpress.entrypoints=websecure"
+            - "traefik.http.routers.wordpress.tls.certresolver=letsencr"

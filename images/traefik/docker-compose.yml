@@ -1,0 +1,57 @@
+networks:
+  default:
+    external: true
+    name: k-core
+
+services:
+  traefik:
+    image: traefik:${IMAGE_TRAEFIK_TAG}
+    container_name: k-traefik
+    restart: unless-stopped
+    environment:
+      - ALICLOUD_ACCESS_KEY=${ALICLOUD_ACCESS_KEY}
+      - ALICLOUD_SECRET_KEY=${ALICLOUD_SECRET_KEY}
+      - TRAEFIK_CERTIFICATESRESOLVERS_LETSENCR_ACME_EMAIL=${ACME_EMAIL}
+      - TRAEFIK_CERTIFICATESRESOLVERS_LETSENCR_ACME_DNSCHALLENGE_PROVIDER=${ACME_DNSPROVIDER}
+    volumes:
+      # So that Traefik can listen to the Docker events
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+      - "./traefik.toml:/etc/traefik/traefik.toml:ro"
+      - "./acme.json:/acme.json"
+    ports:
+      - 80:80
+      - 443:443
+    command: traefik --configFile /etc/traefik/traefik.toml
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider --proxy off localhost:8080/ping || exit 1"]
+      interval: 3s
+      timeout: 5s
+    labels:
+      - "traefik.enable=true"
+      ## DNS CHALLENGE 
+      - "traefik.http.routers.traefik.entrypoints=websecure"
+      - "traefik.http.routers.traefik.tls.certresolver=letsencr"
+      - "traefik.http.routers.traefik.tls.domains[0].main=*.${DOMAIN_NAME}"
+      - "traefik.http.routers.traefik.tls.domains[0].sans=${DOMAIN_NAME}"
+      ## HTTP REDIRECT (#TODO)
+      # - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
+      # - "traefik.http.routers.redirect-https.rule=hostregexp(`{host:.+}`)"
+      # - "traefik.http.routers.redirect-https.entrypoints=web"
+      # - "traefik.http.routers.redirect-https.middlewares=redirect-to-https"
+      ## Dashboard (by admin/admin) https://traefik.kenlongnan.wang/
+      # - "traefik.http.services.traefik-dashboard.loadbalancer.server.port=8080"
+      # - "traefik.http.routers.traefik.rule=Host(`traefik.${DOMAIN_NAME}`)"
+      # - "traefik.http.routers.traefik.entrypoints=websecure"
+      # - "traefik.http.routers.traefik.service=api@internal"
+      # - "traefik.http.routers.traefik.middlewares=dashboard-auth"
+      # - "traefik.http.middlewares.dashboard-auth.basicauth.users=admin:$$apr1$$8EVjn/nj$$GiLUZqcbueTFeD23SuB6x0"
+
+  # whoami:
+  #   image: traefik/whoami
+  #   container_name: "k-whoami"
+  #   restart: unless-stopped
+  #   labels:
+  #     - traefik.enable=true
+  #     - traefik.http.routers.whoami.rule=Host(`whoami.${DOMAIN_NAME}`)
+  #     - traefik.http.routers.whoami.entrypoints=websecure
+  #     - traefik.http.routers.whoami.tls.certresolver=letsencr

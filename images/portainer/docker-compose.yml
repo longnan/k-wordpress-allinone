@@ -1,0 +1,25 @@
+networks:
+    default:
+        external: true
+        name: k-core
+
+volumes:
+  portainer_data:
+    external: true
+    name : k_portainer_data
+
+services:
+  portainer:
+    image: portainer/portainer-ce:${IMAGE_PORTAINER_TAG}
+    container_name: k-portainer
+    restart: unless-stopped
+    command: --log-level DEBUG -H unix:///var/run/docker.sock --tlsskipverify --admin-password='$$2y$$05$$AeDV4GhfO8IZ9sVwSMJmPu0UUynCvgc7X1Ua61DEcJR3vnzZtSjdG' 
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer_data:/data
+    labels: 
+        - "traefik.enable=true"
+        - "traefik.http.services.portainer.loadbalancer.server.port=9000"
+        - "traefik.http.routers.portainer.rule=Host(`portainer.${DOMAIN_NAME}`)"
+        - "traefik.http.routers.portainer.entrypoints=websecure"
+        - "traefik.http.routers.portainer.tls.certresolver=letsencr"
